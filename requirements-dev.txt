@@ -1,9 +1,11 @@
 Flask
 Flask-Admin
-wtf-peewee
+wtforms
 
+wtf-peewee
 peewee
 pymysql
+Flask-Login
 
 pytest
 pytest-flask

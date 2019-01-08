@@ -24,10 +24,13 @@ import os
 
 import peewee
 
-from flask import Flask
+from flask import Flask, url_for, redirect, request
 
-from flask_admin import Admin
+from flask_admin import Admin, AdminIndexView, helpers, expose
 
+from werkzeug.security import generate_password_hash
+
+import flask_login as login
 
 if os.environ.get("FLASK_ENV", None) == "dev":
     os.environ["FLASK_DEBUG"] = "1"
@@ -67,8 +70,74 @@ app_db = peewee.MySQLDatabase(
     port=int(os.environ.get("DB_PORT", 3306)),
 )
 
+login_manager = login.LoginManager()
+login_manager.init_app(application)
+
+
+# Create user loader function
+@login_manager.user_loader
+def load_user(user_id):
+    return User.get(id=user_id)
+
+
+from PyMatcha.forms.user_access import LoginForm, RegistrationForm
+
+
+class MyAdminIndexView(AdminIndexView):
+    @expose("/")
+    def index(self):
+        if not login.current_user.is_authenticated:
+            return redirect(url_for(".login_view"))
+        return super(MyAdminIndexView, self).index()
+
+    @expose("/login/", methods=("GET", "POST"))
+    def login_view(self):
+        # handle user login
+        form = LoginForm(request.form)
+        if helpers.validate_form_on_submit(form):
+            user = form.get_user()
+            login.login_user(user)
+
+        if login.current_user.is_authenticated:
+            return redirect(url_for(".index"))
+        link = "<p>Don't have an account? <a href=\"" + url_for(".register_view") + '">Click here to register.</a></p>'
+        self._template_args["form"] = form
+        self._template_args["link"] = link
+        return super(MyAdminIndexView, self).index()
+
+    @expose("/register/", methods=("GET", "POST"))
+    def register_view(self):
+        form = RegistrationForm(request.form)
+        if helpers.validate_form_on_submit(form):
+            user = User.create(
+                first_name="test", last_name="test", username=str(form.username.data), email=str(form.email.data)
+            )
+
+            user.password = generate_password_hash(form.password.data)
+
+            user.save()
+
+            login.login_user(user)
+            return redirect(url_for(".index"))
+        link = '<p>Already have an account? <a href="' + url_for(".login_view") + '">Click here to log in.</a></p>'
+        self._template_args["form"] = form
+        self._template_args["link"] = link
+        return super(MyAdminIndexView, self).index()
+
+    @expose("/logout/")
+    def logout_view(self):
+        login.logout_user()
+        return redirect(url_for(".index"))
+
+
 application.config["FLASK_ADMIN_SWATCH"] = "simplex"
-admin = Admin(application, name="PyMatcha Admin", template_mode="bootstrap3")
+admin = Admin(
+    application,
+    name="PyMatcha Admin",
+    template_mode="bootstrap3",
+    index_view=MyAdminIndexView(),
+    base_template="my_master.html",
+)
 
 from PyMatcha.models.user import User, UserAdmin
 

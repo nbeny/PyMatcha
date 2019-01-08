@@ -1,5 +1,7 @@
 Flask
 Flask-Admin
+wtforms
 wtf-peewee
 peewee
 pymysql
+Flask-Login

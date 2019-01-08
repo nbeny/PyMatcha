@@ -22,9 +22,11 @@
 import uuid
 import datetime
 
-from peewee import CharField, DateTimeField, TextField, BooleanField
+from peewee import CharField, DateTimeField, TextField, BooleanField, IntegerField
 
 from flask_admin.contrib.peewee import ModelView
+
+from flask_login import current_user
 
 from PyMatcha.models import BaseModel
 
@@ -34,13 +36,19 @@ class User(BaseModel):
     This is the user model used in the DB
     """
 
+    id = IntegerField(primary_key=True)
+
     client_id = CharField(
-        default=str(uuid.uuid4()), help_text="The user's unique identifier", verbose_name="Unique Identifier"
+        default=str(uuid.uuid4()),
+        help_text="The user's unique identifier",
+        verbose_name="Unique Identifier",
+        unique=True,
     )
     first_name = CharField(help_text="The user's first name", verbose_name="First Name")
     last_name = CharField(help_text="The user's last name", verbose_name="Last Name")
-    email = CharField(help_text="The user's email address", verbose_name="Email Address")
-    username = CharField(max_length=80, help_text="User's Username", verbose_name="Username")
+    email = CharField(help_text="The user's email address", verbose_name="Email Address", unique=True)
+    username = CharField(max_length=80, help_text="User's Username", verbose_name="Username", unique=True)
+    password = CharField(help_text="The user's password", verbose_name="Password")
     profile_picture_url = CharField(
         default="https://moonvillageassociation.org/wp-content/uploads/2018/06/default-profile-picture1-744x744.jpg",
         help_text="The user's profile picture image link",
@@ -66,12 +74,31 @@ class User(BaseModel):
     )
     confirmed_by = CharField(null=True, help_text="Who confirmed the user", verbose_name="Confirmed By")
 
+    is_authenticated = BooleanField(
+        default=False, help_text="Is the user authenticated", verbose_name="Is Authenticated"
+    )
+
+    is_superuser = BooleanField(default=False, help_text="Is the user an administator", verbose_name="Is Superuser")
+
     def __unicode__(self):
         return self.username
 
     def __str__(self):
         return self.username
 
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_active(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
 
 class UserAdmin(ModelView):
-    pass
+    def is_accessible(self):
+        return current_user.is_authenticated
